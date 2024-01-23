@@ -1,7 +1,7 @@
 target: LAIONOCRDataset
 params:
 
-  data_root: '{your data root}/LAION-OCR'
+  data_root: './dataroot'
 
   H: 512
   W: 512
@@ -13,4 +13,4 @@ params:
   aug_text_ratio: 1.0
 
   use_cached: False
-  length: 100000
+  length: 5000

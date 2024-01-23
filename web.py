@@ -1,6 +1,7 @@
 import cv2
 import torch
-import os, glob
+import os
+import glob
 import numpy as np
 import gradio as gr
 from PIL import Image
@@ -15,9 +16,9 @@ from util import *
 def predict(cfgs, model, sampler, batch):
 
     context = nullcontext if cfgs.aae_enabled else torch.no_grad
-    
+
     with context():
-        
+
         batch, batch_uc_1 = prepare_batch(cfgs, batch)
 
         c, uc_1 = model.conditioner.get_unconditional_conditioning(
@@ -25,10 +26,10 @@ def predict(cfgs, model, sampler, batch):
             batch_uc=batch_uc_1,
             force_uc_zero_embeddings=cfgs.force_uc_zero_embeddings,
         )
-        
+
         x = sampler.get_init_noise(cfgs, model, cond=c, batch=batch, uc=uc_1)
         samples_z = sampler(model, x, cond=c, batch=batch, uc=uc_1, init_step=0,
-                            aae_enabled = cfgs.aae_enabled, detailed = cfgs.detailed)
+                            aae_enabled=cfgs.aae_enabled, detailed=cfgs.detailed)
 
         samples_x = model.decode_first_stage(samples_z)
         samples = torch.clamp((samples_x + 1.0) / 2.0, min=0.0, max=1.0)
@@ -36,13 +37,15 @@ def predict(cfgs, model, sampler, batch):
         return samples, samples_z
 
 
-def demo_predict(input_blk, text, num_samples, steps, scale, seed, show_detail):
+def demo_predict(input_blk, text, steps, scale, seed, show_detail):
 
     global cfgs, global_index
+    num_samples = 1
 
     global_index += 1
 
-    if num_samples > 1: cfgs.noise_iters = 0
+    if num_samples > 1:
+        cfgs.noise_iters = 0
 
     cfgs.batch_size = num_samples
     cfgs.steps = steps
@@ -59,12 +62,15 @@ def demo_predict(input_blk, text, num_samples, steps, scale, seed, show_detail):
 
     mask = (mask == 0).astype(np.int32)
 
-    image = torch.from_numpy(image.transpose(2,0,1)).to(dtype=torch.float32) / 127.5 - 1.0
-    mask = torch.from_numpy(mask.transpose(2,0,1)).to(dtype=torch.float32).mean(dim=0, keepdim=True)
+    image = torch.from_numpy(image.transpose(2, 0, 1)).to(
+        dtype=torch.float32) / 127.5 - 1.0
+    mask = torch.from_numpy(mask.transpose(2, 0, 1)).to(
+        dtype=torch.float32).mean(dim=0, keepdim=True)
     masked = image * mask
     mask = 1 - mask
 
-    seg_mask = torch.cat((torch.ones(len(text)), torch.zeros(cfgs.seq_len-len(text))))
+    seg_mask = torch.cat(
+        (torch.ones(len(text)), torch.zeros(cfgs.seq_len-len(text))))
 
     # additional cond
     txt = f"\"{text}\""
@@ -76,9 +82,12 @@ def demo_predict(input_blk, text, num_samples, steps, scale, seed, show_detail):
     mask = torch.tile(mask[None], (num_samples, 1, 1, 1))
     masked = torch.tile(masked[None], (num_samples, 1, 1, 1))
     seg_mask = torch.tile(seg_mask[None], (num_samples, 1))
-    original_size_as_tuple = torch.tile(original_size_as_tuple[None], (num_samples, 1))
-    crop_coords_top_left = torch.tile(crop_coords_top_left[None], (num_samples, 1))
-    target_size_as_tuple = torch.tile(target_size_as_tuple[None], (num_samples, 1))
+    original_size_as_tuple = torch.tile(
+        original_size_as_tuple[None], (num_samples, 1))
+    crop_coords_top_left = torch.tile(
+        crop_coords_top_left[None], (num_samples, 1))
+    target_size_as_tuple = torch.tile(
+        target_size_as_tuple[None], (num_samples, 1))
 
     text = [text for i in range(num_samples)]
     txt = [txt for i in range(num_samples)]
@@ -126,8 +135,6 @@ if __name__ == "__main__":
 
     model = init_model(cfgs)
     global_index = 0
-    
-    
 
     block = gr.Blocks().queue()
     with block:
@@ -148,17 +155,22 @@ if __name__ == "__main__":
 
             with gr.Column():
 
-                input_blk = gr.Image(source='upload', tool='sketch', type="numpy", label="삽입", height=512)
-                text = gr.Textbox(label="글자 삽입 : ", info="마킹된 영역에 삽입할 글자를 입력하세요")
+                input_blk = gr.Image(
+                    source='upload', tool='sketch', type="numpy", label="삽입", height=512)
+                text = gr.Textbox(label="글자 삽입 : ",
+                                  info="마킹된 영역에 삽입할 글자를 입력하세요")
                 run_button = gr.Button(variant="primary")
 
-                with gr.Accordion("Advanced options", open=False):
+                with gr.Accordion("고급 옵션", open=False):
 
-                    num_samples = gr.Slider(label="Images", info="number of generated images, locked as 1", minimum=1, maximum=1, value=1, step=1)
-                    steps = gr.Slider(label="Steps", info ="denoising sampling steps", minimum=1, maximum=200, value=50, step=1)
-                    scale = gr.Slider(label="Guidance Scale", info="the scale of classifier-free guidance (CFG)", minimum=0.0, maximum=10.0, value=4.0, step=0.1)
-                    seed = gr.Slider(label="Seed", info="random seed for noise initialization", minimum=0, maximum=2147483647, step=1, randomize=True)
-                    show_detail = gr.Checkbox(label="Show Detail", info="show the additional visualization results", value=True)
+                    steps = gr.Slider(
+                        label="Steps", info="노이즈 제거 반복 횟수", minimum=1, maximum=200, value=50, step=1)
+                    scale = gr.Slider(label="Guidanse Sacle", info="비분류 지도 등급(CFG)",
+                                      minimum=0.0, maximum=10.0, value=4.0, step=0.1)
+                    seed = gr.Slider(label="Seed", info="결과 초기화를 위한 임의 값",
+                                     minimum=0, maximum=2147483647, step=1, randomize=True)
+                    show_detail = gr.Checkbox(
+                        label="추가 시각화 결과 표시", info="show the additional visualization results", value=True)
 
             with gr.Column():
 
@@ -167,26 +179,20 @@ if __name__ == "__main__":
                 with gr.Accordion("Visualization results", open=False):
 
                     with gr.Tab(label="Attention Maps"):
-                        gr.Markdown("### Attention maps for each character (extracted from middle blocks at intermediate sampling step):")
-                        attn_map = gr.Image(show_label=False, show_download_button=False)
+                        gr.Markdown(
+                            "### Attention maps for each character (각 단계마다 추출):")
+                        attn_map = gr.Image(
+                            show_label=False, show_download_button=False)
                     with gr.Tab(label="Segmentation Maps"):
-                        gr.Markdown("### Character-level segmentation maps (using upscaled attention maps):")
-                        seg_map = gr.AnnotatedImage(height=384, show_label=False)
+                        gr.Markdown(
+                            "### Character-level segmentation maps (attention maps에서 도출됨):")
+                        seg_map = gr.AnnotatedImage(
+                            height=384, show_label=False)
 
-        # examples
-        examples = []
-        example_paths = sorted(glob.glob(ospj("./demo/examples", "*")))
-        for example_path in example_paths:
-            label = example_path.split(os.sep)[-1].split(".")[0].split("_")[0]
-            examples.append([example_path, label])
+        # num_samples = 1
+        # num_samples._id = 2321
 
-        gr.Markdown("## Examples:")
-        
-        gr.Examples(
-            examples=examples,
-            inputs=[input_blk, text]
-        )
-
-        run_button.click(fn=demo_predict, inputs=[input_blk, text, num_samples, steps, scale, seed, show_detail], outputs=[gallery, attn_map, seg_map])
+        run_button.click(fn=demo_predict, inputs=[
+                         input_blk, text, steps, scale, seed, show_detail], outputs=[gallery, attn_map, seg_map])
 
     block.launch(share=False, server_name="0.0.0.0", server_port=7860)

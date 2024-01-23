@@ -1,7 +1,7 @@
 type: "test"
 
 # path
-load_ckpt_path: "./checkpoints/{your checkpoint path}.ckpt"
+load_ckpt_path: "./checkpoints/st-step=100000+la-step=100000-v2-003.ckpt"
 model_cfg_path: "./configs/test/textdesign_sd_2.yaml"
 dataset_cfg_path: "./configs/dataset/icd13.yaml"
 output_dir: "./outputs"
